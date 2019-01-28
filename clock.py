@@ -100,9 +100,10 @@ while(1):
             fulldate=messageQ.get()
             name=fulldate[0:fulldate.find(":")]
             #print(name)
-            colourCode=((hash(name) & 0xFFFFFF) | 404040)
+            colourCode=((hash(name) & 0xFFFFFF) | 0x404040)
             #print(hex(colourCode))
             scrollColour = graphics.Color((colourCode & 0xff0000) >> 16, (colourCode & 0x00ff00) >> 8, (colourCode & 0x0000ff)) #GREEN
+            #print(scrollColour)
         elif currentDT.hour < 23:
             scrollColour = BLUE
             fulldate = currentDT.strftime("%d-%m-%y  %A")

@@ -34,7 +34,7 @@ messageQ = Queue.Queue()
 
 # Add Listener
 def myCallback(room, event):
-	# print(event[u'content'][u'body'])
+	#print(event)
 	messageQ.put(event[u'sender'].replace(':matrix.org','')+': '+event[u'content'][u'body'])
 	pass
 
@@ -97,12 +97,16 @@ while(1):
         scroller = 64
 
         if not messageQ.empty():
-            scrollColour = GREEN
             fulldate=messageQ.get()
+            name=fulldate[0:fulldate.find(":")]
+            #print(name)
+            colourCode=((hash(name) & 0xFFFFFF) | 404040)
+            #print(hex(colourCode))
+            scrollColour = graphics.Color((colourCode & 0xff0000) >> 16, (colourCode & 0x00ff00) >> 8, (colourCode & 0x0000ff)) #GREEN
         elif currentDT.hour < 23:
             scrollColour = BLUE
             fulldate = currentDT.strftime("%d-%m-%y  %A")
-            fulldate = str(fulldate) + "  " + percent_through_year()
+            fulldate = str(fulldate) + "  " + percent_through_year(currentDT)
             #if currentDT.day < 10:
             #    fulldate = fulldate[1:]
         else:
@@ -113,6 +117,7 @@ while(1):
                 goHomeSent=True
 
         sizeofdate = len(fulldate)*7
+        #print(fulldate)
 
     Millis = int(round(time.time() * 1000))
 

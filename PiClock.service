@@ -1,0 +1,14 @@
+[Unit]
+Description=PiClock service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python -u clock.py
+WorkingDirectory=/home/pi/PiClock
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

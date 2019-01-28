@@ -9,7 +9,7 @@ from rgbmatrix import graphics
 from rgbmatrix import RGBMatrix
 from matrix_client import client
 
-time.sleep(60) # Wait for network
+#time.sleep(60) # Wait for network
 
 # Load up the font (use absolute paths so script can be invoked
 # from /etc/rc.local correctly)

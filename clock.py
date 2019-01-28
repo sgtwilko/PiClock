@@ -3,9 +3,13 @@
 
 import time
 import datetime
+import calendar
+import Queue
 from rgbmatrix import graphics
 from rgbmatrix import RGBMatrix
+from matrix_client import client
 
+time.sleep(60) # Wait for network
 
 # Load up the font (use absolute paths so script can be invoked
 # from /etc/rc.local correctly)
@@ -17,6 +21,40 @@ def loadFont(font):
 flip = True
 tick = True
 scroller = 64
+
+# Create matrix object and Login
+matrix=client.MatrixClient("https://matrix.org")
+matrix_token=matrix.login("PiClock","me141hh")
+
+# Join room
+mhroom=matrix.join_room("#maidstone-hackspace:matrix.org")
+
+# room messages list
+messageQ = Queue.Queue()
+
+# Add Listener
+def myCallback(room, event):
+	# print(event[u'content'][u'body'])
+	messageQ.put(event[u'sender'].replace(':matrix.org','')+': '+event[u'content'][u'body'])
+	pass
+
+mhroom.add_listener(myCallback,u'm.room.message')
+matrix.start_listener_thread()
+
+def percent_through_year(currentDT):
+    today = currentDT
+    day_of_year = (today - datetime.datetime(today.year, 1, 1)).days + 1
+    current_year =  today.year
+
+    if calendar.isleap(today.year):
+        days_in_year = 366
+    else:
+        days_in_year = 365
+
+    percent_of_year = round((float(day_of_year) / float(days_in_year) * float(100)),2)
+
+    return ("%s is %s%% complete!" % (current_year, percent_of_year))
+
 
 # init the RGB matrix as 32 Rows, 2 panels (represents 32 x 64 panel), 1 chain
 MyMatrix = RGBMatrix(32, 2, 1)
@@ -45,21 +83,36 @@ loadFont('7x13B')
 loadFont('9x18B')
 loadFont('6x9')
 
+goHomeSent=False
+sizeofdate=0
+#scrollColour = BLUE
+scroller=0
+
 # Create the buffer canvas
 MyOffsetCanvas = MyMatrix.CreateFrameCanvas()
 while(1):
     currentDT = datetime.datetime.now()
+    scroller = scroller-1
+    if scroller <= (-sizeofdate):
+        scroller = 64
 
-    if currentDT.hour < 23:
-        scrollColour = BLUE
-        fulldate = currentDT.strftime("%d-%m-%y  %A")
-        if currentDT.day < 10:
-            fulldate = fulldate[1:]
-    else:
-        scrollColour = PURPLE
-        fulldate = "GO HOME!!!"
+        if not messageQ.empty():
+            scrollColour = GREEN
+            fulldate=messageQ.get()
+        elif currentDT.hour < 23:
+            scrollColour = BLUE
+            fulldate = currentDT.strftime("%d-%m-%y  %A")
+            fulldate = str(fulldate) + "  " + percent_through_year()
+            #if currentDT.day < 10:
+            #    fulldate = fulldate[1:]
+        else:
+            scrollColour = PURPLE
+            fulldate = "GO HOME!!!"
+            if not goHomeSent:
+                mhroom.send_text(fulldate)
+                goHomeSent=True
 
-    sizeofdate = len(fulldate)*7
+        sizeofdate = len(fulldate)*7
 
     Millis = int(round(time.time() * 1000))
 
@@ -71,11 +124,7 @@ while(1):
         lastDateFlip = int(round(time.time() * 1000))
         flip = not flip
 
-    scroller = scroller-1
-    if scroller == (-sizeofdate):
-        scroller = 64
-
-    thetime = currentDT.strftime("%l"+(":" if tick else " ")+"%M")
+    thetime = currentDT.strftime("%H"+(":" if tick else " ")+"%M")
 
     thetime = str.lstrip(thetime)
     sizeoftime = (25 - (len(thetime) * 9) / 2)

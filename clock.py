@@ -4,6 +4,7 @@
 import time
 import datetime
 import calendar
+import colorsys
 import Queue
 from rgbmatrix import graphics
 from rgbmatrix import RGBMatrix
@@ -40,6 +41,9 @@ def myCallback(room, event):
 
 mhroom.add_listener(myCallback,u'm.room.message')
 matrix.start_listener_thread()
+
+def shiftIt(val, places):
+	return (val & (pow(2,places)-1), val >> places)
 
 def percent_through_year(currentDT):
     today = currentDT
@@ -99,10 +103,14 @@ while(1):
         if not messageQ.empty():
             fulldate=messageQ.get()
             name=fulldate[0:fulldate.find(":")]
-            #print(name)
-            colourCode=((hash(name) & 0xFFFFFF) | 0x404040)
-            #print(hex(colourCode))
-            scrollColour = graphics.Color((colourCode & 0xff0000) >> 16, (colourCode & 0x00ff00) >> 8, (colourCode & 0x0000ff)) #GREEN
+            print(name)
+            colourCode=((hash(name) & 0xFFFFFF))
+            hue, col = shiftIt(colourCode,3)
+            saturation, col = shiftIt(col, 3)
+            value, col = shiftIt(col,2)
+            r,g,b=tuple(i*255 for i in colorsys.hsv_to_rgb(hue/7.0,saturation/7.0,(value+4)/7.0))
+            print((r,g,b))
+            scrollColour = graphics.Color(r, g, b) #GREEN
             #print(scrollColour)
         elif currentDT.hour < 23:
             scrollColour = BLUE

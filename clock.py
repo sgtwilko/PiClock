@@ -6,6 +6,7 @@ import datetime
 import calendar
 import colorsys
 import Queue
+import hashlib
 from rgbmatrix import graphics
 from rgbmatrix import RGBMatrix
 from matrix_client import client
@@ -14,6 +15,7 @@ from matrix_client import client
 
 # Load up the font (use absolute paths so script can be invoked
 # from /etc/rc.local correctly)
+# We no longer run from rc.local, we're using a service file to start after networking.
 def loadFont(font):
     global fonts
     fonts[font] = graphics.Font()
@@ -30,6 +32,10 @@ matrix_token=matrix.login("PiClock","me141hh")
 # Join room
 mhroom=matrix.join_room("#maidstone-hackspace:matrix.org")
 
+# Probably want to try to detect if this is in testing or a real startup...
+mhroom.send_text("The PiClock has started, therefore the Hackspace must be open!")
+# To-Do: add system monitoring so that when the system is shutdown we send a message about space closing...
+
 # room messages list
 messageQ = Queue.Queue()
 
@@ -42,23 +48,23 @@ def myCallback(room, event):
 mhroom.add_listener(myCallback,u'm.room.message')
 matrix.start_listener_thread()
 
+
 def shiftIt(val, places):
 	return (val & (pow(2,places)-1), val >> places)
 
+def colourFromName(aVal, colourFromBitSize, offset, shift):
+    colourSpace=pow(2,colourSpaceBitSize)-1
+    aNum=(int(hashlib.sha1(aVal).hexdigest(),16) >> shift)+offset & colourSpace
+    r,g,b=tuple(int(i*255) for i in colorsys.hsv_to_rgb(aNum/float(colourSpace),1,1))
+    return((r,g,b))
+
+
 def percent_through_year(currentDT):
-    today = currentDT
-    day_of_year = (today - datetime.datetime(today.year, 1, 1)).days + 1
-    current_year =  today.year
-
-    if calendar.isleap(today.year):
-        days_in_year = 366
-    else:
-        days_in_year = 365
-
-    percent_of_year = round((float(day_of_year) / float(days_in_year) * float(100)),2)
-
-    return ("%s is %s%% complete!" % (current_year, percent_of_year))
-
+    #Grab year start & end, the work out number of seconds we are through the year, simples!
+    ys=datetime.datetime(currentDT.year,1,1)
+    ye=datetime.datetime(currentDT.year,12,31,23,59,59)
+    percent_of_year=round(((currentDT-ys).total_seconds()/(ye-ys).total_seconds())*100,5)
+    return ("%s is %s%% complete!" % (currentDT.year, percent_of_year))
 
 # init the RGB matrix as 32 Rows, 2 panels (represents 32 x 64 panel), 1 chain
 MyMatrix = RGBMatrix(32, 2, 1)
@@ -91,6 +97,7 @@ goHomeSent=False
 sizeofdate=0
 #scrollColour = BLUE
 scroller=0
+sleepTime=0.04
 
 # Create the buffer canvas
 MyOffsetCanvas = MyMatrix.CreateFrameCanvas()
@@ -101,24 +108,21 @@ while(1):
         scroller = 64
 
         if not messageQ.empty():
+            # To-Do: Make a noise, oh and add hardware to be able to hear the noise...
+            sleepTime=0.03
             fulldate=messageQ.get()
-            name=fulldate[0:fulldate.find(":")]
+            name=fulldate[1:fulldate.find(":")]
             print(name)
-            colourCode=((hash(name) & 0xFFFFFF))
-            hue, col = shiftIt(colourCode,3)
-            saturation, col = shiftIt(col, 3)
-            value, col = shiftIt(col,2)
-            r,g,b=tuple(i*255 for i in colorsys.hsv_to_rgb(hue/7.0,saturation/7.0,(value+4)/7.0))
+            r,g,b=colourFromName(name, 5, 23, 0)
             print((r,g,b))
-            scrollColour = graphics.Color(r, g, b) #GREEN
-            #print(scrollColour)
+            scrollColour = graphics.Color(r, g, b)
         elif currentDT.hour < 23:
+            sleepTime=0.04
             scrollColour = BLUE
             fulldate = currentDT.strftime("%d-%m-%y  %A")
             fulldate = str(fulldate) + "  " + percent_through_year(currentDT)
-            #if currentDT.day < 10:
-            #    fulldate = fulldate[1:]
         else:
+            sleepTime=0.02
             scrollColour = PURPLE
             fulldate = "GO HOME!!!"
             if not goHomeSent:
@@ -130,13 +134,14 @@ while(1):
 
     Millis = int(round(time.time() * 1000))
 
+    # To-Do: Replace with seconds modulus?
     if Millis-lastSecondFlip > 1000:
         lastSecondFlip = int(round(time.time() * 1000))
         tick = not tick
 
-    if Millis-lastDateFlip > 5000:
-        lastDateFlip = int(round(time.time() * 1000))
-        flip = not flip
+    #if Millis-lastDateFlip > 5000:
+    #    lastDateFlip = int(round(time.time() * 1000))
+    #    flip = not flip
 
     thetime = currentDT.strftime("%H"+(":" if tick else " ")+"%M")
 
@@ -158,4 +163,4 @@ while(1):
 
     MyOffsetCanvas = MyMatrix.SwapOnVSync(MyOffsetCanvas)
     MyOffsetCanvas.Clear()
-    time.sleep(0.05)
+    time.sleep(sleepTime)

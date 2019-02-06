@@ -7,11 +7,14 @@ import calendar
 import colorsys
 import Queue
 import hashlib
+import signal
+from espeak import espeak
 from rgbmatrix import graphics
 from rgbmatrix import RGBMatrix
 from matrix_client import client
 
 #time.sleep(60) # Wait for network
+espeak.synth("Hello Hackspace")
 
 # Load up the font (use absolute paths so script can be invoked
 # from /etc/rc.local correctly)
@@ -24,6 +27,18 @@ def loadFont(font):
 flip = True
 tick = True
 scroller = 64
+
+# Monitor service
+class ServiceMonitor:
+    running = True
+    def __init__(self):
+        signal.signal(signal.SIGINT, self.timeToQuit)
+        signal.signal(signal.SIGTERM, self.timeToQuit)
+
+    def timeToQuit(self,signum, frame):
+        self.running = False
+
+myService=ServiceMonitor()
 
 # Create matrix object and Login
 matrix=client.MatrixClient("https://matrix.org")
@@ -52,7 +67,7 @@ matrix.start_listener_thread()
 def shiftIt(val, places):
 	return (val & (pow(2,places)-1), val >> places)
 
-def colourFromName(aVal, colourFromBitSize, offset, shift):
+def colourFromName(aVal, colourSpaceBitSize, offset, shift):
     colourSpace=pow(2,colourSpaceBitSize)-1
     aNum=(int(hashlib.sha1(aVal).hexdigest(),16) >> shift)+offset & colourSpace
     r,g,b=tuple(int(i*255) for i in colorsys.hsv_to_rgb(aNum/float(colourSpace),1,1))
@@ -63,8 +78,9 @@ def percent_through_year(currentDT):
     #Grab year start & end, the work out number of seconds we are through the year, simples!
     ys=datetime.datetime(currentDT.year,1,1)
     ye=datetime.datetime(currentDT.year,12,31,23,59,59)
-    percent_of_year=round(((currentDT-ys).total_seconds()/(ye-ys).total_seconds())*100,5)
+    percent_of_year=round(((currentDT-ys).total_seconds()/(ye-ys).total_seconds())*100,4)
     return ("%s is %s%% complete!" % (currentDT.year, percent_of_year))
+
 
 # init the RGB matrix as 32 Rows, 2 panels (represents 32 x 64 panel), 1 chain
 MyMatrix = RGBMatrix(32, 2, 1)
@@ -101,12 +117,11 @@ sleepTime=0.04
 
 # Create the buffer canvas
 MyOffsetCanvas = MyMatrix.CreateFrameCanvas()
-while(1):
+while(myService.running):
     currentDT = datetime.datetime.now()
     scroller = scroller-1
     if scroller <= (-sizeofdate):
         scroller = 64
-
         if not messageQ.empty():
             # To-Do: Make a noise, oh and add hardware to be able to hear the noise...
             sleepTime=0.03
@@ -116,6 +131,7 @@ while(1):
             r,g,b=colourFromName(name, 5, 23, 0)
             print((r,g,b))
             scrollColour = graphics.Color(r, g, b)
+            #espeak.synth(fulldate)
         elif currentDT.hour < 23:
             sleepTime=0.04
             scrollColour = BLUE
@@ -164,3 +180,11 @@ while(1):
     MyOffsetCanvas = MyMatrix.SwapOnVSync(MyOffsetCanvas)
     MyOffsetCanvas.Clear()
     time.sleep(sleepTime)
+
+print("service shutting down")
+#espeak.synth("Shutting down")
+mhroom.send_text("The PiClock has stopped!")
+#while espeak.is_playing:
+#    pass
+
+time.sleep(2)

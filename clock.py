@@ -13,8 +13,8 @@ from rgbmatrix import graphics
 from rgbmatrix import RGBMatrix
 from matrix_client import client
 
-#time.sleep(60) # Wait for network
 espeak.synth("Hello Hackspace")
+
 
 # Load up the font (use absolute paths so script can be invoked
 # from /etc/rc.local correctly)
@@ -28,24 +28,26 @@ flip = True
 tick = True
 scroller = 64
 
+
 # Monitor service
 class ServiceMonitor:
     running = True
+
     def __init__(self):
         signal.signal(signal.SIGINT, self.timeToQuit)
         signal.signal(signal.SIGTERM, self.timeToQuit)
 
-    def timeToQuit(self,signum, frame):
+    def timeToQuit(self, signum, frame):
         self.running = False
 
-myService=ServiceMonitor()
+myService = ServiceMonitor()
 
 # Create matrix object and Login
-matrix=client.MatrixClient("https://matrix.org")
-matrix_token=matrix.login("PiClock","me141hh")
+matrix = client.MatrixClient("https://matrix.org")
+matrix_token = matrix.login("PiClock", "me141hh")
 
 # Join room
-mhroom=matrix.join_room("#maidstone-hackspace:matrix.org")
+mhroom = matrix.join_room("#maidstone-hackspace:matrix.org")
 
 # Probably want to try to detect if this is in testing or a real startup...
 mhroom.send_text("The PiClock has started, therefore the Hackspace must be open!")
@@ -54,31 +56,32 @@ mhroom.send_text("The PiClock has started, therefore the Hackspace must be open!
 # room messages list
 messageQ = Queue.Queue()
 
+
 # Add Listener
 def myCallback(room, event):
-	#print(event)
-	messageQ.put(event[u'sender'].replace(':matrix.org','')+': '+event[u'content'][u'body'])
-	pass
+    messageQ.put(event[u'sender'].replace(':matrix.org', '')+': '+event[u'content'][u'body'])
+    pass
 
-mhroom.add_listener(myCallback,u'm.room.message')
+mhroom.add_listener(myCallback, u'm.room.message')
 matrix.start_listener_thread()
 
 
 def shiftIt(val, places):
-	return (val & (pow(2,places)-1), val >> places)
+    return (val & (pow(2, places)-1), val >> places)
+
 
 def colourFromName(aVal, colourSpaceBitSize, offset, shift):
-    colourSpace=pow(2,colourSpaceBitSize)-1
-    aNum=(int(hashlib.sha1(aVal).hexdigest(),16) >> shift)+offset & colourSpace
-    r,g,b=tuple(int(i*255) for i in colorsys.hsv_to_rgb(aNum/float(colourSpace),1,1))
-    return((r,g,b))
+    colourSpace = pow(2, colourSpaceBitSize)-1
+    aNum = (int(hashlib.sha1(aVal).hexdigest(), 16) >> shift)+offset & colourSpace
+    r, g, b = tuple(int(i*255) for i in colorsys.hsv_to_rgb(aNum/float(colourSpace), 1, 1))
+    return((r, g, b))
 
 
 def percent_through_year(currentDT):
-    #Grab year start & end, the work out number of seconds we are through the year, simples!
-    ys=datetime.datetime(currentDT.year,1,1)
-    ye=datetime.datetime(currentDT.year,12,31,23,59,59)
-    percent_of_year=round(((currentDT-ys).total_seconds()/(ye-ys).total_seconds())*100,4)
+    # Grab year start & end, the work out number of seconds we are through the year, simples!
+    ys = datetime.datetime(currentDT.year, 1, 1)
+    ye = datetime.datetime(currentDT.year, 12, 31, 23, 59, 59)
+    percent_of_year = round(((currentDT-ys).total_seconds()/(ye-ys).total_seconds())*100, 4)
     return ("%s is %s%% complete!" % (currentDT.year, percent_of_year))
 
 
@@ -109,11 +112,11 @@ loadFont('7x13B')
 loadFont('9x18B')
 loadFont('6x9')
 
-goHomeSent=False
-sizeofdate=0
-#scrollColour = BLUE
-scroller=0
-sleepTime=0.04
+goHomeSent = False
+sizeofdate = 0
+# scrollColour = BLUE
+scroller = 0
+sleepTime = 0.04
 
 # Create the buffer canvas
 MyOffsetCanvas = MyMatrix.CreateFrameCanvas()
@@ -124,29 +127,28 @@ while(myService.running):
         scroller = 64
         if not messageQ.empty():
             # To-Do: Make a noise, oh and add hardware to be able to hear the noise...
-            sleepTime=0.03
-            fulldate=messageQ.get()
-            name=fulldate[1:fulldate.find(":")]
+            sleepTime = 0.03
+            fulldate = messageQ.get()
+            name = fulldate[1:fulldate.find(":")]
             print(name)
-            r,g,b=colourFromName(name, 5, 23, 0)
-            print((r,g,b))
+            r, g, b = colourFromName(name, 5, 23, 0)
+            # print((r, g, b))
             scrollColour = graphics.Color(r, g, b)
-            #espeak.synth(fulldate)
+            # espeak.synth(fulldate)
         elif currentDT.hour < 23:
-            sleepTime=0.04
+            sleepTime = 0.04
             scrollColour = BLUE
             fulldate = currentDT.strftime("%d-%m-%y  %A")
             fulldate = str(fulldate) + "  " + percent_through_year(currentDT)
         else:
-            sleepTime=0.02
+            sleepTime = 0.02
             scrollColour = PURPLE
             fulldate = "GO HOME!!!"
             if not goHomeSent:
                 mhroom.send_text(fulldate)
-                goHomeSent=True
+                goHomeSent = True
 
         sizeofdate = len(fulldate)*7
-        #print(fulldate)
 
     Millis = int(round(time.time() * 1000))
 
@@ -155,17 +157,10 @@ while(myService.running):
         lastSecondFlip = int(round(time.time() * 1000))
         tick = not tick
 
-    #if Millis-lastDateFlip > 5000:
-    #    lastDateFlip = int(round(time.time() * 1000))
-    #    flip = not flip
-
     thetime = currentDT.strftime("%H"+(":" if tick else " ")+"%M")
 
     thetime = str.lstrip(thetime)
     sizeoftime = (25 - (len(thetime) * 9) / 2)
-
-    # theday = currentDT.strftime("%A")
-    # sizeofday = (32 - (len(theday)* 7)/2)
 
     pmam = currentDT.strftime("%p")
 
@@ -182,9 +177,6 @@ while(myService.running):
     time.sleep(sleepTime)
 
 print("service shutting down")
-#espeak.synth("Shutting down")
 mhroom.send_text("The PiClock has stopped!")
-#while espeak.is_playing:
-#    pass
 
 time.sleep(2)

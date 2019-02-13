@@ -8,12 +8,12 @@ import colorsys
 import Queue
 import hashlib
 import signal
-from espeak import espeak
+# from espeak import espeak
 from rgbmatrix import graphics
 from rgbmatrix import RGBMatrix
 from matrix_client import client
 
-espeak.synth("Hello Hackspace")
+# espeak.synth("Hello Hackspace")
 
 
 # Load up the font (use absolute paths so script can be invoked

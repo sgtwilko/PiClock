@@ -8,13 +8,16 @@ import colorsys
 import Queue
 import hashlib
 import signal
+import tts
 # from espeak import espeak
 from rgbmatrix import graphics
 from rgbmatrix import RGBMatrix
 from matrix_client import client
 
 # espeak.synth("Hello Hackspace")
-
+ttsThread = TTSThread()
+ttsThread.start()
+ttsThread.say("Hello Hackspace")
 
 # Load up the font (use absolute paths so script can be invoked
 # from /etc/rc.local correctly)
@@ -135,6 +138,7 @@ while(myService.running):
             # print((r, g, b))
             scrollColour = graphics.Color(r, g, b)
             # espeak.synth(fulldate)
+            ttsThread.say(fulldate)
         elif currentDT.hour < 23:
             sleepTime = 0.04
             scrollColour = BLUE
@@ -177,6 +181,8 @@ while(myService.running):
     time.sleep(sleepTime)
 
 print("service shutting down")
+ttsThread.say("Shutting down")
 mhroom.send_text("The PiClock has stopped!")
 
-time.sleep(2)
+time.sleep(4)
+ttsThread.join()
